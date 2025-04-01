@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AQI Dashboard</title>
+  <!-- Include Bootstrap for styling -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" />
+  <!-- Include Chart.js, Moment.js and the adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
+</head>
+<body>
+  <div class="container mt-4">
+    <h1>Air Quality Monitoring Dashboard</h1>
+    
+    <!-- Aggregation Level Selection -->
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <label for="aggregationSelect" class="form-label">Aggregation Level:</label>
+        <select id="aggregationSelect" class="form-select" onchange="updateChart()">
+          <option value="raw">Raw Data</option>
+          <option value="hourly">Hourly</option>
+          <option value="daily" selected>Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- Date Range Selection -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <label for="startDate" class="form-label">Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="startDate" class="form-control" min="2025-01-01" max="2025-01-31">
+      </div>
+      <div class="col-md-3">
+        <label for="endDate" class="form-label">End Date (YYYY-MM-DD):</label>
+        <input type="date" id="endDate" class="form-control" min="2025-01-01" max="2025-01-31">
+      </div>
+      <div class="col-md-3 align-self-end">
+        <button class="btn btn-primary" onclick="updateChart()">Apply Date Filter</button>
+      </div>
+    </div>
+    
+    <!-- Pollutant Selection -->
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Select Pollutants:</label><br>
+        <input type="checkbox" id="nox" value="NOX Conc" checked> <label for="nox">NOX Concentration</label><br>
+        <input type="checkbox" id="no" value="NO Conc" checked> <label for="no">NO Concentration</label><br>
+        <input type="checkbox" id="no2" value="NO2 Conc" checked> <label for="no2">NO₂ Concentration</label>
+      </div>
+    </div>
+    
+    <!-- Canvas for Chart.js -->
+    <canvas id="myChart" width="1000" height="400"></canvas>
+  </div>
+
+  <script>
+    let myChart;
+
+    // Function to fetch aggregated data from the backend
+    async function fetchData(aggregation, start, end) {
+      let url = `/api/data/aggregated?agg=${aggregation}`;
+      if (start && end) {
+        url += `&start=${start}&end=${end}`;
+      }
+      const response = await fetch(url);
+      const data = await response.json();
+      console.log("Fetched Data:", data);
+      return data;
+    }
+
+    // Function to get selected pollutants (array of column names)
+    function getSelectedPollutants() {
+      const selected = [];
+      if (document.getElementById('nox').checked) {
+        selected.push("NOX Conc");
+      }
+      if (document.getElementById('no').checked) {
+        selected.push("NO Conc");
+      }
+      if (document.getElementById('no2').checked) {
+        selected.push("NO2 Conc");
+      }
+      return selected;
+    }
+
+    // Function to render the chart using Chart.js
+    async function renderChart() {
+      const aggSelect = document.getElementById('aggregationSelect');
+      const aggregation = aggSelect.value;
+
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      
+      const data = await fetchData(aggregation, start, end);
+      
+      // Get selected pollutants
+      const pollutants = getSelectedPollutants();
+
+      // Prepare labels and datasets
+      const labels = data.map(d => d.time);
+      const datasets = pollutants.map(pollutant => {
+        // Choose a border color based on pollutant name (customize as needed)
+        let borderColor = 'black';
+        if (pollutant === "NOX Conc") borderColor = 'red';
+        else if (pollutant === "NO Conc") borderColor = 'blue';
+        else if (pollutant === "NO2 Conc") borderColor = 'green';
+
+        return {
+          label: pollutant,
+          data: data.map(d => d[pollutant] || 0),
+          borderColor: borderColor,
+          fill: false
+        };
+      });
+
+      // Destroy old chart if it exists
+      if (myChart) {
+        myChart.destroy();
+      }
+
+      const ctx = document.getElementById('myChart').getContext('2d');
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: aggregation === 'hourly' ? 'hour' :
+                      aggregation === 'weekly' ? 'week' :
+                      aggregation === 'monthly' ? 'month' : 'day'
+              },
+              title: {
+                display: true,
+                text: 'Time'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Concentration'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Called when user changes a selection
+    function updateChart() {
+      renderChart();
+    }
+
+    // Render chart on page load
+    window.onload = renderChart;
+  </script>
+</body>
+</html>
