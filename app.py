@@ -54,6 +54,10 @@ def get_aggregated_data():
     data_json = aggregated.reset_index().to_dict(orient="records")
     return jsonify(data_json)
 
+#if __name__ == "__main__":
+ #   app.run(host="0.0.0.0", debug=False, use_reloader=False)
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=False, use_reloader=False)
+    port = int(os.environ.get("PORT", 5000))  # Use environment variable if available
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
