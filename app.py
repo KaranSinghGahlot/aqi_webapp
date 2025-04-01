@@ -55,4 +55,5 @@ def get_aggregated_data():
     return jsonify(data_json)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=False, use_reloader=False)
+
